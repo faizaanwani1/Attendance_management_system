@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fingerprint Attendance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        form, button {
+            margin: 10px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fingerprint Attendance System</h1>
+
+    <form id="attendanceForm" method="POST" action="/capture">
+        <label>Roll:</label>
+        <input type="text" name="roll" required>
+
+        <label>Name:</label>
+        <input type="text" name="name" required>
+
+        <label>Department:</label>
+        <input type="text" name="department" required>
+
+        <button type="button" onclick="authenticate()">Authenticate & Mark Attendance</button>
+    </form>
+
+    <div id="status"></div>
+
+    <script>
+        async function authenticate() {
+            if (!window.PublicKeyCredential) {
+                alert('WebAuthn is not supported on this device.');
+                return;
+            }
+
+            try {
+                const credential = await navigator.credentials.create({
+                    publicKey: {
+                        challenge: new Uint8Array(32),
+                        rp: { name: "Fingerprint Attendance System" },
+                        user: {
+                            id: new Uint8Array(16),
+                            name: "testuser",
+                            displayName: "Test User"
+                        },
+                        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+                        authenticatorSelection: {
+                            authenticatorAttachment: "platform",  
+                            requireResidentKey: false,
+                            userVerification: "required" 
+                        },
+                        timeout: 60000,
+                    }
+                });
+
+                if (credential) {
+                    const formData = new FormData(document.getElementById('attendanceForm'));
+                    formData.append('fingerprint_data', JSON.stringify(credential));
+
+                    const response = await fetch('/capture', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    document.getElementById('status').innerText = result.message || result.error;
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Fingerprint authentication failed.');
+            }
+        }
+    </script>
+</body>
+</html>
